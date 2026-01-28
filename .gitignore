@@ -3,3 +3,13 @@ package-lock.json
 # Local secrets / developer-specific configs
 cloud-server/.dev.vars
 dashboard/config.js
+cloud-server/README.md
+cloud-server/worker.js
+dashboard/app.js
+dashboard/config.example.js
+dashboard/index.html
+dashboard/README.md
+dashboard/styles.css
+cloud-server/worker.js
+cloud-server/README.md
+/cloud-server

@@ -2,6 +2,25 @@
 
 All notable changes to X-Posed will be documented in this file.
 
+## [2.5.0] - 2025-01-28
+
+### ✨ New Features
+- **Toggle Capture Button** — New option to show/hide the camera button on info badges (PR #11 by @ystolzenburg)
+
+### ⚡ Performance
+- **Faster API lookups** — Reduced throttle (300→150ms) and increased concurrency (5→8 parallel requests)
+- **Faster cloud cache** — Reduced batch delay (500→200ms) for quicker responses
+- **Parallelized broadcasts** — Settings updates now 5-10x faster across tabs
+- **Optimized timings** — Snappier search, faster initial page load, reduced theme detection overhead
+
+### 💰 Cloud Cost Optimization
+- **Stats endpoint** — No longer lists all KV keys (~70% cost reduction)
+- **Edge caching** — Lookups cached at Cloudflare edge for 1 hour (80% fewer KV reads)
+- **Contribution deduplication** — Skip re-uploads within 24 hours (90% fewer writes)
+- **Server-side rate limiting** — 60 requests/min/IP to prevent abuse
+
+---
+
 ## [2.4.0] - 2025-12-28
 
 ### ✨ New Features

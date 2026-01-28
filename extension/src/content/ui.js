@@ -1,6 +1,9 @@
 /**
  * UI Module
  * Handles all visual/UI components: toasts, badges, theme, sidebar
+ *
+ * CHANGELOG v2.5.0:
+ * - Theme detection throttle 200→500ms (less CPU during scroll)
  */
 
 import browserAPI from '../shared/browser-api.js';
@@ -109,11 +112,12 @@ export function detectAndApplyTheme(debug) {
  */
 export function startThemeObserver() {
     if (themeObserver) return;
-    
-    // Throttle theme detection to run at most once every 200ms
+
+    // Throttle theme detection to run at most once every 500ms
+    // Theme changes are rare and don't need immediate detection
     const throttledThemeDetection = throttle(() => {
         detectAndApplyTheme();
-    }, 200);
+    }, 500);
     
     themeObserver = new MutationObserver(() => {
         throttledThemeDetection();

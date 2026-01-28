@@ -643,6 +643,23 @@ body {
     opacity: 0.8;
 }
 
+.support-note {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.support-note a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.support-note a:hover {
+    text-decoration: underline;
+}
+
 /* Save Status */
 .save-status {
     position: fixed;

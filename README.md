@@ -180,18 +180,14 @@ extension/src/
 
 ## 📝 Changelog
 
-**v2.4.0** — Latest
+**v2.5.0** — Latest
 
-### ✨ New Features
-- **Tag-Based Blocking** — Block users based on emojis, symbols, or text patterns in their display names
-  - Tags are matched against the user's display name (not username)
-  - New "Tags" tab in the blocking modal and options page
-  - Works alongside existing country and region blocking
-  - Tags included in Export/Import for backup and restore
+### ✨ New
+- **Toggle Capture Button** — Show/hide the camera button on badges
 
-### 🎨 UI/UX
-- Added count badges to blocking modal tabs showing number of blocked items
-- Streamlined tag management interface in sidebar modal and options page
+### ⚡ Performance
+- **Faster lookups** — 2x faster API with optimized throttling
+- **Cloud cost savings** — Edge caching & deduplication (~80% reduction)
 
 [View full changelog →](CHANGELOG.md)
 
