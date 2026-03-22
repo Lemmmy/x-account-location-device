@@ -1,18 +1,16 @@
 {
   "manifest_version": 3,
   "name": "X-Posed: Account Location & Device Info",
-  "version": "2.3.2",
+  "version": "2.6.0",
   "description": "See where X users are located and what devices they use. Country flags & device icons next to every username. Optional geo-blocking.",
-  
+
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
 
-  "permissions": [
-    "storage"
-  ],
+  "permissions": ["storage"],
 
   "host_permissions": [
     "*://*.x.com/*",
@@ -26,10 +24,7 @@
 
   "content_scripts": [
     {
-      "matches": [
-        "*://*.x.com/*",
-        "*://*.twitter.com/*"
-      ],
+      "matches": ["*://*.x.com/*", "*://*.twitter.com/*"],
       "js": ["content.js"],
       "css": ["styles/content.css"],
       "run_at": "document_start"
@@ -38,15 +33,8 @@
 
   "web_accessible_resources": [
     {
-      "resources": [
-        "page-script.js",
-        "modal.js",
-        "styles/content.css"
-      ],
-      "matches": [
-        "*://*.x.com/*",
-        "*://*.twitter.com/*"
-      ]
+      "resources": ["page-script.js", "modal.js", "styles/content.css"],
+      "matches": ["*://*.x.com/*", "*://*.twitter.com/*"]
     }
   ],
 

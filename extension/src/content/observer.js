@@ -3,10 +3,15 @@
  * Handles DOM observation, user processing, and caching
  */
 
-import { SELECTORS, CSS_CLASSES, MESSAGE_TYPES, TIMING, isRegion } from '../shared/constants.js';
-import { extractUsername, findInsertionPoint, getLoggedInUsername, extractTagsFromText } from '../shared/utils.js';
-import { createBadge, findUserCellInsertionPoint, showRateLimitToast } from './ui.js';
-import { LRUCache } from '../shared/lru-cache.js';
+import { SELECTORS, CSS_CLASSES, MESSAGE_TYPES, TIMING, isRegion } from "../shared/constants.js";
+import {
+  extractUsername,
+  findInsertionPoint,
+  getLoggedInUsername,
+  extractTagsFromText,
+} from "../shared/utils.js";
+import { createBadge, findUserCellInsertionPoint, showRateLimitToast } from "./ui.js";
+import { LRUCache } from "../shared/lru-cache.js";
 
 // ============================================
 // VALIDATION
@@ -19,8 +24,8 @@ import { LRUCache } from '../shared/lru-cache.js';
  * @returns {boolean} - True if valid
  */
 function isValidScreenName(screenName) {
-    if (!screenName || typeof screenName !== 'string') return false;
-    return /^[a-zA-Z0-9_]{1,15}$/.test(screenName);
+  if (!screenName || typeof screenName !== "string") return false;
+  return /^[a-zA-Z0-9_]{1,15}$/.test(screenName);
 }
 
 /**
@@ -30,24 +35,23 @@ function isValidScreenName(screenName) {
  * @returns {boolean} - True if inside a quote tweet
  */
 function isInsideQuoteTweet(element) {
-    // Get the tweet article
-    const tweet = element.closest(SELECTORS.TWEET);
-    if (!tweet) return false;
-    
-    // Walk up from the element to the tweet article
-    // If we encounter a quote card container, this is a quoted user
-    let current = element.parentElement;
-    while (current && current !== tweet) {
-        // Quote tweet cards are clickable containers with role="link" and tabindex="0"
-        // They contain the quoted tweet's content including the username
-        if (current.getAttribute('role') === 'link' &&
-            current.getAttribute('tabindex') === '0') {
-            return true;
-        }
-        current = current.parentElement;
+  // Get the tweet article
+  const tweet = element.closest(SELECTORS.TWEET);
+  if (!tweet) return false;
+
+  // Walk up from the element to the tweet article
+  // If we encounter a quote card container, this is a quoted user
+  let current = element.parentElement;
+  while (current && current !== tweet) {
+    // Quote tweet cards are clickable containers with role="link" and tabindex="0"
+    // They contain the quoted tweet's content including the username
+    if (current.getAttribute("role") === "link" && current.getAttribute("tabindex") === "0") {
+      return true;
     }
-    
-    return false;
+    current = current.parentElement;
+  }
+
+  return false;
 }
 
 // ============================================
@@ -93,45 +97,45 @@ export const observerCleanupFunctions = [];
  * @returns {string} - Display name with emojis
  */
 function extractDisplayName(element) {
-    // Find the tweet or user cell
-    const tweet = element.closest(SELECTORS.TWEET);
-    const userCell = element.closest(SELECTORS.USER_CELL);
-    const container = tweet || userCell;
-    if (!container) return '';
-    
-    // Method 1: Look for User-Name testid which contains display name and @handle
-    const userNameContainer = container.querySelector('[data-testid="User-Name"]');
-    if (userNameContainer) {
-        // The first link usually contains the display name
-        const displayNameLink = userNameContainer.querySelector('a[href^="/"]');
-        if (displayNameLink) {
-            const displayName = extractTextWithEmojis(displayNameLink);
-            if (displayName && !displayName.startsWith('@')) {
-                return displayName;
-            }
-        }
+  // Find the tweet or user cell
+  const tweet = element.closest(SELECTORS.TWEET);
+  const userCell = element.closest(SELECTORS.USER_CELL);
+  const container = tweet || userCell;
+  if (!container) return "";
+
+  // Method 1: Look for User-Name testid which contains display name and @handle
+  const userNameContainer = container.querySelector('[data-testid="User-Name"]');
+  if (userNameContainer) {
+    // The first link usually contains the display name
+    const displayNameLink = userNameContainer.querySelector('a[href^="/"]');
+    if (displayNameLink) {
+      const displayName = extractTextWithEmojis(displayNameLink);
+      if (displayName && !displayName.startsWith("@")) {
+        return displayName;
+      }
     }
-    
-    // Method 2: Look for profile links with role="link"
-    const profileLinks = container.querySelectorAll('a[href^="/"][role="link"]');
-    for (const link of profileLinks) {
-        const displayName = extractTextWithEmojis(link);
-        // Skip if it looks like a @username or if it's empty
-        if (displayName && !displayName.startsWith('@') && displayName.length > 0) {
-            return displayName;
-        }
+  }
+
+  // Method 2: Look for profile links with role="link"
+  const profileLinks = container.querySelectorAll('a[href^="/"][role="link"]');
+  for (const link of profileLinks) {
+    const displayName = extractTextWithEmojis(link);
+    // Skip if it looks like a @username or if it's empty
+    if (displayName && !displayName.startsWith("@") && displayName.length > 0) {
+      return displayName;
     }
-    
-    // Method 3: Check the element itself if it contains the display name
-    const parentSpan = element.closest('span');
-    if (parentSpan) {
-        const displayName = extractTextWithEmojis(parentSpan);
-        if (displayName && !displayName.startsWith('@')) {
-            return displayName;
-        }
+  }
+
+  // Method 3: Check the element itself if it contains the display name
+  const parentSpan = element.closest("span");
+  if (parentSpan) {
+    const displayName = extractTextWithEmojis(parentSpan);
+    if (displayName && !displayName.startsWith("@")) {
+      return displayName;
     }
-    
-    return '';
+  }
+
+  return "";
 }
 
 /**
@@ -140,30 +144,30 @@ function extractDisplayName(element) {
  * @returns {string} - Text with emojis
  */
 function extractTextWithEmojis(element) {
-    let result = '';
-    
-    const walker = document.createTreeWalker(
-        element,
-        NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-        {
-            acceptNode: node => {
-                if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
-                if (node.nodeName === 'IMG' && node.alt) return NodeFilter.FILTER_ACCEPT;
-                return NodeFilter.FILTER_SKIP;
-            }
-        }
-    );
-    
-    let node;
-    while ((node = walker.nextNode())) {
-        if (node.nodeType === Node.TEXT_NODE) {
-            result += node.textContent;
-        } else if (node.nodeName === 'IMG' && node.alt) {
-            result += node.alt;
-        }
+  let result = "";
+
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+        if (node.nodeName === "IMG" && node.alt) return NodeFilter.FILTER_ACCEPT;
+        return NodeFilter.FILTER_SKIP;
+      },
+    },
+  );
+
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent;
+    } else if (node.nodeName === "IMG" && node.alt) {
+      result += node.alt;
     }
-    
-    return result.trim();
+  }
+
+  return result.trim();
 }
 
 /**
@@ -173,28 +177,28 @@ function extractTextWithEmojis(element) {
  * @returns {boolean} - True if any blocked tag is found
  */
 function hasBlockedTag(displayName, blockedTags) {
-    if (!displayName || !blockedTags || blockedTags.size === 0) return false;
-    
-    // Extract tags from display name
-    const nameTags = extractTagsFromText(displayName);
-    
-    // Check each tag against blocked set
-    for (const tag of nameTags) {
-        if (blockedTags.has(tag)) {
-            return true;
-        }
+  if (!displayName || !blockedTags || blockedTags.size === 0) return false;
+
+  // Extract tags from display name
+  const nameTags = extractTagsFromText(displayName);
+
+  // Check each tag against blocked set
+  for (const tag of nameTags) {
+    if (blockedTags.has(tag)) {
+      return true;
     }
-    
-    // Also check if the display name contains any blocked tag as a substring
-    const displayLower = displayName.toLowerCase();
-    for (const blockedTag of blockedTags) {
-        const tagLower = blockedTag.toLowerCase();
-        if (displayLower.includes(tagLower)) {
-            return true;
-        }
+  }
+
+  // Also check if the display name contains any blocked tag as a substring
+  const displayLower = displayName.toLowerCase();
+  for (const blockedTag of blockedTags) {
+    const tagLower = blockedTag.toLowerCase();
+    if (displayLower.includes(tagLower)) {
+      return true;
     }
-    
-    return false;
+  }
+
+  return false;
 }
 
 // ============================================
@@ -205,29 +209,29 @@ function hasBlockedTag(displayName, blockedTags) {
  * Extract username from a UserCell element
  */
 export function extractUsernameFromUserCell(userCell) {
-    // Method 1: Look for UserAvatar-Container-{username} testid
-    const avatarContainer = userCell.querySelector('[data-testid^="UserAvatar-Container-"]');
-    if (avatarContainer) {
-        const testId = avatarContainer.getAttribute('data-testid');
-        const match = testId.match(/UserAvatar-Container-(.+)/);
-        if (match) {
-            return match[1];
-        }
+  // Method 1: Look for UserAvatar-Container-{username} testid
+  const avatarContainer = userCell.querySelector('[data-testid^="UserAvatar-Container-"]');
+  if (avatarContainer) {
+    const testId = avatarContainer.getAttribute("data-testid");
+    const match = testId.match(/UserAvatar-Container-(.+)/);
+    if (match) {
+      return match[1];
     }
-    
-    // Method 2: Look for profile links
-    const profileLinks = userCell.querySelectorAll('a[href^="/"]');
-    for (const link of profileLinks) {
-        const href = link.getAttribute('href');
-        if (href.includes('/') && href.split('/').length === 2) {
-            const screenName = href.slice(1);
-            if (/^[a-zA-Z0-9_]+$/.test(screenName)) {
-                return screenName;
-            }
-        }
+  }
+
+  // Method 2: Look for profile links
+  const profileLinks = userCell.querySelectorAll('a[href^="/"]');
+  for (const link of profileLinks) {
+    const href = link.getAttribute("href");
+    if (href.includes("/") && href.split("/").length === 2) {
+      const screenName = href.slice(1);
+      if (/^[a-zA-Z0-9_]+$/.test(screenName)) {
+        return screenName;
+      }
     }
-    
-    return null;
+  }
+
+  return null;
 }
 
 // ============================================
@@ -238,60 +242,62 @@ export function extractUsernameFromUserCell(userCell) {
  * Start Intersection Observer for lazy processing
  */
 export function startIntersectionObserver(processElementSafe, _debug) {
-    if (intersectionObserver) return;
-    
-    intersectionObserver = new IntersectionObserver(
-        entries => {
-            for (const entry of entries) {
-                if (entry.isIntersecting) {
-                    const element = entry.target;
-                    
-                    intersectionObserver.unobserve(element);
-                    pendingVisibility.delete(element);
-                    
-                    processElementSafe(element);
-                }
-            }
-        },
-        {
-            rootMargin: '200px',
-            threshold: 0
+  if (intersectionObserver) return;
+
+  intersectionObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          const element = entry.target;
+
+          intersectionObserver.unobserve(element);
+          pendingVisibility.delete(element);
+
+          processElementSafe(element);
         }
-    );
-    
-    observerCleanupFunctions.push(() => {
-        if (intersectionObserver) {
-            intersectionObserver.disconnect();
-            intersectionObserver = null;
-        }
-        pendingVisibility.clear();
-    });
+      }
+    },
+    {
+      rootMargin: "200px",
+      threshold: 0,
+    },
+  );
+
+  observerCleanupFunctions.push(() => {
+    if (intersectionObserver) {
+      intersectionObserver.disconnect();
+      intersectionObserver = null;
+    }
+    pendingVisibility.clear();
+  });
 }
 
 /**
  * Queue element for processing when visible
  */
 export function queueForVisibility(element, processElementSafe, debug) {
-    if (!intersectionObserver) {
-        processElementSafe(element);
-        return;
+  if (!intersectionObserver) {
+    processElementSafe(element);
+    return;
+  }
+
+  if (pendingVisibility.has(element) || element.dataset.xProcessed) {
+    return;
+  }
+
+  if (pendingVisibility.size >= PENDING_VISIBILITY_MAX_SIZE) {
+    const firstKey = pendingVisibility.keys().next().value;
+    if (firstKey) {
+      intersectionObserver.unobserve(firstKey);
+      pendingVisibility.delete(firstKey);
+      if (debug) {
+        debug(`Evicted oldest pending visibility entry, queue size: ${pendingVisibility.size}`);
+      }
     }
-    
-    if (pendingVisibility.has(element) || element.dataset.xProcessed) {
-        return;
-    }
-    
-    if (pendingVisibility.size >= PENDING_VISIBILITY_MAX_SIZE) {
-        const firstKey = pendingVisibility.keys().next().value;
-        if (firstKey) {
-            intersectionObserver.unobserve(firstKey);
-            pendingVisibility.delete(firstKey);
-            if (debug) debug(`Evicted oldest pending visibility entry, queue size: ${pendingVisibility.size}`);
-        }
-    }
-    
-    pendingVisibility.set(element, true);
-    intersectionObserver.observe(element);
+  }
+
+  pendingVisibility.set(element, true);
+  intersectionObserver.observe(element);
 }
 
 // ============================================
@@ -302,109 +308,109 @@ export function queueForVisibility(element, processElementSafe, debug) {
  * Start MutationObserver for DOM changes
  */
 export function startObserver(isEnabled, processElementSafe, scanPage, debug) {
-    if (observer) return;
-    
-    // Start Intersection Observer
-    startIntersectionObserver(processElementSafe, debug);
+  if (observer) return;
 
-    let pendingElements = new Set();
-    let processTimeout = null;
+  // Start Intersection Observer
+  startIntersectionObserver(processElementSafe, debug);
 
-    const processPending = () => {
-        if (pendingElements.size === 0) return;
-        
-        const elements = Array.from(pendingElements);
-        pendingElements = new Set();
-        
-        for (const element of elements) {
-            queueForVisibility(element, processElementSafe, debug);
+  let pendingElements = new Set();
+  let processTimeout = null;
+
+  const processPending = () => {
+    if (pendingElements.size === 0) return;
+
+    const elements = Array.from(pendingElements);
+    pendingElements = new Set();
+
+    for (const element of elements) {
+      queueForVisibility(element, processElementSafe, debug);
+    }
+  };
+
+  const scheduleProcessing = () => {
+    if (processTimeout) return;
+    processTimeout = setTimeout(() => {
+      processTimeout = null;
+      processPending();
+    }, 50);
+  };
+
+  observer = new MutationObserver((mutations) => {
+    if (!isEnabled()) return;
+
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+        // Check if the node itself matches (single combined check)
+        if (node.matches && node.matches(COMBINED_USER_SELECTOR)) {
+          if (!node.dataset.xProcessed) {
+            pendingElements.add(node);
+          }
         }
-    };
 
-    const scheduleProcessing = () => {
-        if (processTimeout) return;
-        processTimeout = setTimeout(() => {
-            processTimeout = null;
-            processPending();
-        }, 50);
-    };
-
-    observer = new MutationObserver(mutations => {
-        if (!isEnabled()) return;
-
-        for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
-                // Check if the node itself matches (single combined check)
-                if (node.matches && node.matches(COMBINED_USER_SELECTOR)) {
-                    if (!node.dataset.xProcessed) {
-                        pendingElements.add(node);
-                    }
-                }
-
-                // Query descendants with combined selector (single DOM query)
-                if (node.querySelectorAll) {
-                    const elements = node.querySelectorAll(COMBINED_USER_SELECTOR);
-                    for (let i = 0; i < elements.length; i++) {
-                        const el = elements[i];
-                        if (!el.dataset.xProcessed) {
-                            pendingElements.add(el);
-                        }
-                    }
-                }
+        // Query descendants with combined selector (single DOM query)
+        if (node.querySelectorAll) {
+          const elements = node.querySelectorAll(COMBINED_USER_SELECTOR);
+          for (let i = 0; i < elements.length; i++) {
+            const el = elements[i];
+            if (!el.dataset.xProcessed) {
+              pendingElements.add(el);
             }
+          }
         }
+      }
+    }
 
-        if (pendingElements.size > 0) {
-            scheduleProcessing();
-        }
-    });
+    if (pendingElements.size > 0) {
+      scheduleProcessing();
+    }
+  });
 
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 
-    // Initial scan
-    scanPage();
-    
-    // Delayed scan after X loads
-    setTimeout(() => scanPage(), 2000);
-    
-    observerCleanupFunctions.push(() => {
-        if (observer) {
-            observer.disconnect();
-            observer = null;
-        }
-    });
+  // Initial scan
+  scanPage();
+
+  // Delayed scan after X loads
+  setTimeout(() => scanPage(), 2000);
+
+  observerCleanupFunctions.push(() => {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+  });
 }
 
 /**
  * Scan the current page for username elements
  */
 export function scanPage(isEnabled, processElementsBatch, _debug) {
-    if (!isEnabled()) return;
+  if (!isEnabled()) return;
 
-    // Use cached combined selector for single DOM query (better performance)
-    const elements = document.querySelectorAll(COMBINED_USER_SELECTOR);
-    
-    if (elements.length > 0) {
-        console.log(`🔍 X-Posed: Found ${elements.length} user elements to process`);
-    }
-    
-    processElementsBatch(Array.from(elements));
+  // Use cached combined selector for single DOM query (better performance)
+  const elements = document.querySelectorAll(COMBINED_USER_SELECTOR);
+
+  if (elements.length > 0) {
+    console.log(`🔍 X-Posed: Found ${elements.length} user elements to process`);
+  }
+
+  processElementsBatch(Array.from(elements));
 }
 
 /**
  * Process elements in batches
  */
 export function processElementsBatch(elements, processElementSafe, debug) {
-    if (elements.length === 0) return;
+  if (elements.length === 0) return;
 
-    for (const element of elements) {
-        queueForVisibility(element, processElementSafe, debug);
-    }
+  for (const element of elements) {
+    queueForVisibility(element, processElementSafe, debug);
+  }
 }
 
 // ============================================
@@ -415,27 +421,29 @@ export function processElementsBatch(elements, processElementSafe, debug) {
  * Safe wrapper for processElement with error boundary
  */
 export function createProcessElementSafe(processElement) {
-    return function processElementSafe(element) {
-        try {
-            processElement(element).catch(error => {
-                console.error('X-Posed: Error processing element:', error.message);
-                if (element && element.dataset) {
-                    element.dataset.xProcessed = 'error';
-                }
-            });
-        } catch (error) {
-            console.error('X-Posed: Sync error processing element:', error.message);
-            if (element && element.dataset) {
-                element.dataset.xProcessed = 'error';
-            }
+  return function processElementSafe(element) {
+    try {
+      processElement(element).catch((error) => {
+        console.error("X-Posed: Error processing element:", error.message);
+        if (element && element.dataset) {
+          element.dataset.xProcessed = "error";
         }
-    };
+      });
+    } catch (error) {
+      console.error("X-Posed: Sync error processing element:", error.message);
+      if (element && element.dataset) {
+        element.dataset.xProcessed = "error";
+      }
+    }
+  };
 }
 
 /**
  * Process a single username element
  */
-export async function processElement(element, {
+export async function processElement(
+  element,
+  {
     blockedCountries,
     blockedRegions,
     blockedTags,
@@ -443,340 +451,352 @@ export async function processElement(element, {
     csrfToken,
     sendMessage,
     debug,
-    debugMode
-}) {
-    const isUserCell = element.matches && element.matches(SELECTORS.USER_CELL);
-    
-    const screenName = isUserCell
-        ? extractUsernameFromUserCell(element)
-        : extractUsername(element);
-        
-    if (!screenName) {
+    debugMode,
+  },
+) {
+  const isUserCell = element.matches && element.matches(SELECTORS.USER_CELL);
+
+  const screenName = isUserCell ? extractUsernameFromUserCell(element) : extractUsername(element);
+
+  if (!screenName) {
+    return;
+  }
+
+  // Validate screen name to prevent injection attacks
+  if (!isValidScreenName(screenName)) {
+    if (debug) debug(`Invalid screen name rejected: ${screenName.substring(0, 20)}...`);
+    return;
+  }
+
+  // Handle element recycling
+  if (element.dataset.xProcessed) {
+    const previousScreenName = element.dataset.xScreenName;
+    if (previousScreenName === screenName) {
+      if (element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`)) {
         return;
+      }
+    } else {
+      if (debug) debug(`Element recycled: @${previousScreenName} → @${screenName}`);
+      const oldBadge = element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`);
+      if (oldBadge) oldBadge.remove();
+      delete element.dataset.xProcessed;
+      delete element.dataset.xScreenName;
+      delete element.dataset.xCountry;
     }
-    
-    // Validate screen name to prevent injection attacks
-    if (!isValidScreenName(screenName)) {
-        if (debug) debug(`Invalid screen name rejected: ${screenName.substring(0, 20)}...`);
-        return;
-    }
-    
-    // Handle element recycling
-    if (element.dataset.xProcessed) {
-        const previousScreenName = element.dataset.xScreenName;
-        if (previousScreenName === screenName) {
-            if (element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`)) {
-                return;
-            }
-        } else {
-            if (debug) debug(`Element recycled: @${previousScreenName} → @${screenName}`);
-            const oldBadge = element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`);
-            if (oldBadge) oldBadge.remove();
-            delete element.dataset.xProcessed;
-            delete element.dataset.xScreenName;
-            delete element.dataset.xCountry;
+  }
+
+  element.dataset.xProcessed = "true";
+  element.dataset.xScreenName = screenName;
+
+  if (debug) debug(`Processing @${screenName}`);
+
+  // Check for blocked tags in display name early (before API call)
+  if (blockedTags && blockedTags.size > 0) {
+    const displayName = extractDisplayName(element);
+    if (displayName && hasBlockedTag(displayName, blockedTags)) {
+      element.dataset.xTagBlocked = "true";
+      element.dataset.xDisplayName = displayName;
+
+      const isQuote = isInsideQuoteTweet(element);
+      const loggedInUser = getLoggedInUsername();
+      const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
+
+      if (!isQuote && !isSelf) {
+        const tweet = element.closest(SELECTORS.TWEET);
+        if (tweet) {
+          if (settings.highlightBlockedTweets) {
+            tweet.setAttribute("data-x-tweet-highlighted", "true");
+            tweet.classList.add("x-tweet-highlighted");
+            tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
+          } else {
+            tweet.setAttribute("data-x-tweet-highlighted", "true");
+            tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
+            tweet.classList.remove("x-tweet-highlighted");
+          }
+          if (debug) debug(`Blocked @${screenName} due to tag in display name: "${displayName}"`);
+
+          if (!settings.highlightBlockedTweets) {
+            return;
+          }
         }
+      }
     }
-    
-    element.dataset.xProcessed = 'true';
-    element.dataset.xScreenName = screenName;
+  }
 
-    if (debug) debug(`Processing @${screenName}`);
+  // Check local cache
+  if (userInfoCache.has(screenName)) {
+    if (debug) debug(`Using local cache for @${screenName}`);
+    const info = userInfoCache.get(screenName);
+    if (info) {
+      element.dataset.xCountry = info.location || "";
+      element.dataset.xVpn = info.locationAccurate === false ? "true" : "";
+      element.dataset.xIsRegion = isRegion(info.location) ? "true" : "";
 
-    // Check for blocked tags in display name early (before API call)
-    if (blockedTags && blockedTags.size > 0) {
-        const displayName = extractDisplayName(element);
-        if (displayName && hasBlockedTag(displayName, blockedTags)) {
-            element.dataset.xTagBlocked = 'true';
-            element.dataset.xDisplayName = displayName;
-            
+      // Handle blocked country or region - only for main tweet author, not quoted tweets
+      if (info.location) {
+        const locationLower = info.location.toLowerCase();
+        const isBlockedCountry = blockedCountries.has(locationLower);
+        const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
+
+        if (isBlockedCountry || isBlockedRegion) {
+          // Only block/highlight if this is the main tweet author, not a quoted user
+          const isQuote = isInsideQuoteTweet(element);
+          const loggedInUser = getLoggedInUsername();
+          const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
+
+          if (!isQuote && !isSelf) {
+            const tweet = element.closest(SELECTORS.TWEET);
+            if (tweet) {
+              if (settings.highlightBlockedTweets) {
+                tweet.setAttribute("data-x-tweet-highlighted", "true");
+                tweet.classList.add("x-tweet-highlighted");
+                tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
+              } else {
+                tweet.setAttribute("data-x-tweet-highlighted", "true");
+                tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
+                tweet.classList.remove("x-tweet-highlighted");
+              }
+            }
+            // Don't return - still need to show badge for highlighted mode
+            if (!settings.highlightBlockedTweets) {
+              return;
+            }
+          }
+          // If it's a quote, continue to show badge but don't block/highlight parent tweet
+        }
+      }
+
+      // Hide if VPN detected and showVpnUsers is disabled
+      const loggedInUser = getLoggedInUsername();
+      const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
+
+      if (info.locationAccurate === false && settings.showVpnUsers === false && !isSelf) {
+        const tweet = element.closest(SELECTORS.TWEET);
+        if (tweet) {
+          tweet.setAttribute("data-x-tweet-highlighted", "true");
+          tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
+          tweet.classList.add("x-tweet-vpn-blocked");
+        }
+        return;
+      }
+
+      if (info.location || info.device) {
+        try {
+          createBadge(element, screenName, info, isUserCell, settings, debug, csrfToken);
+        } catch (badgeError) {
+          if (debug) debug(`Badge creation error for @${screenName}: ${badgeError.message}`);
+        }
+      }
+    }
+    return;
+  }
+
+  // Check if request in flight - use promise-based waiting instead of arbitrary timeout
+  if (processingQueue.has(screenName)) {
+    // Wait for the in-flight request to complete using the stored promise
+    const pendingPromise = processingQueue.get(screenName);
+    if (pendingPromise && typeof pendingPromise.then === "function") {
+      try {
+        await pendingPromise;
+      } catch {
+        // Ignore errors - we'll check cache below
+      }
+    }
+
+    // Now check if cache was populated
+    if (userInfoCache.has(screenName)) {
+      const info = userInfoCache.get(screenName);
+      if (info) {
+        element.dataset.xCountry = info.location || "";
+        element.dataset.xIsRegion = isRegion(info.location) ? "true" : "";
+        if (info.location) {
+          const locationLower = info.location.toLowerCase();
+          const isBlockedCountry = blockedCountries.has(locationLower);
+          const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
+
+          if (isBlockedCountry || isBlockedRegion) {
+            // Only block/highlight if not inside a quote tweet
             const isQuote = isInsideQuoteTweet(element);
             const loggedInUser = getLoggedInUsername();
             const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
-            
+
             if (!isQuote && !isSelf) {
-                const tweet = element.closest(SELECTORS.TWEET);
-                if (tweet) {
-                    if (settings.highlightBlockedTweets) {
-                        tweet.classList.add('x-tweet-highlighted');
-                        tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
-                    } else {
-                        tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
-                        tweet.classList.remove('x-tweet-highlighted');
-                    }
-                    if (debug) debug(`Blocked @${screenName} due to tag in display name: "${displayName}"`);
-                    
-                    if (!settings.highlightBlockedTweets) {
-                        return;
-                    }
+              const tweet = element.closest(SELECTORS.TWEET);
+              if (tweet) {
+                if (settings.highlightBlockedTweets) {
+                  tweet.setAttribute("data-x-tweet-highlighted", "true");
+                  tweet.classList.add("x-tweet-highlighted");
+                  tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
+                } else {
+                  tweet.setAttribute("data-x-tweet-highlighted", "true");
+                  tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
+                  tweet.classList.remove("x-tweet-highlighted");
                 }
-            }
-        }
-    }
-
-    // Check local cache
-    if (userInfoCache.has(screenName)) {
-        if (debug) debug(`Using local cache for @${screenName}`);
-        const info = userInfoCache.get(screenName);
-        if (info) {
-            element.dataset.xCountry = info.location || '';
-            element.dataset.xVpn = info.locationAccurate === false ? 'true' : '';
-            element.dataset.xIsRegion = isRegion(info.location) ? 'true' : '';
-                
-            // Handle blocked country or region - only for main tweet author, not quoted tweets
-            if (info.location) {
-                const locationLower = info.location.toLowerCase();
-                const isBlockedCountry = blockedCountries.has(locationLower);
-                const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
-                
-                if (isBlockedCountry || isBlockedRegion) {
-                    // Only block/highlight if this is the main tweet author, not a quoted user
-                    const isQuote = isInsideQuoteTweet(element);
-                    const loggedInUser = getLoggedInUsername();
-                    const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
-                    
-                    if (!isQuote && !isSelf) {
-                        const tweet = element.closest(SELECTORS.TWEET);
-                        if (tweet) {
-                            if (settings.highlightBlockedTweets) {
-                                tweet.classList.add('x-tweet-highlighted');
-                                tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
-                            } else {
-                                tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
-                                tweet.classList.remove('x-tweet-highlighted');
-                            }
-                        }
-                        // Don't return - still need to show badge for highlighted mode
-                        if (!settings.highlightBlockedTweets) {
-                            return;
-                        }
-                    }
-                    // If it's a quote, continue to show badge but don't block/highlight parent tweet
-                }
-            }
-            
-            // Hide if VPN detected and showVpnUsers is disabled
-            const loggedInUser = getLoggedInUsername();
-            const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
-        
-            if (info.locationAccurate === false && settings.showVpnUsers === false && !isSelf) {
-                const tweet = element.closest(SELECTORS.TWEET);
-                if (tweet) {
-                    tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
-                    tweet.classList.add('x-tweet-vpn-blocked');
-                }
+              }
+              if (!settings.highlightBlockedTweets) {
                 return;
+              }
             }
-            
-            if (info.location || info.device) {
-                try {
-                    createBadge(element, screenName, info, isUserCell, settings, debug, csrfToken);
-                } catch (badgeError) {
-                    if (debug) debug(`Badge creation error for @${screenName}: ${badgeError.message}`);
-                }
-            }
+          }
         }
-        return;
-    }
-
-    // Check if request in flight - use promise-based waiting instead of arbitrary timeout
-    if (processingQueue.has(screenName)) {
-        // Wait for the in-flight request to complete using the stored promise
-        const pendingPromise = processingQueue.get(screenName);
-        if (pendingPromise && typeof pendingPromise.then === 'function') {
-            try {
-                await pendingPromise;
-            } catch {
-                // Ignore errors - we'll check cache below
-            }
-        }
-        
-        // Now check if cache was populated
-        if (userInfoCache.has(screenName)) {
-            const info = userInfoCache.get(screenName);
-            if (info) {
-                element.dataset.xCountry = info.location || '';
-                element.dataset.xIsRegion = isRegion(info.location) ? 'true' : '';
-                if (info.location) {
-                    const locationLower = info.location.toLowerCase();
-                    const isBlockedCountry = blockedCountries.has(locationLower);
-                    const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
-                    
-                    if (isBlockedCountry || isBlockedRegion) {
-                        // Only block/highlight if not inside a quote tweet
-                        const isQuote = isInsideQuoteTweet(element);
-                        const loggedInUser = getLoggedInUsername();
-                        const isSelf = loggedInUser && screenName.toLowerCase() === loggedInUser.toLowerCase();
-                        
-                        if (!isQuote && !isSelf) {
-                            const tweet = element.closest(SELECTORS.TWEET);
-                            if (tweet) {
-                                if (settings.highlightBlockedTweets) {
-                                    tweet.classList.add('x-tweet-highlighted');
-                                    tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
-                                } else {
-                                    tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
-                                    tweet.classList.remove('x-tweet-highlighted');
-                                }
-                            }
-                            if (!settings.highlightBlockedTweets) {
-                                return;
-                            }
-                        }
-                    }
-                }
-                if (info.location || info.device) {
-                    createBadge(element, screenName, info, isUserCell, settings, debug, csrfToken);
-                }
-            }
-        }
-        return;
-    }
-
-    // Create the processing promise and store it for waiting
-    let resolveProcessing;
-    const processingPromise = new Promise(resolve => {
-        resolveProcessing = resolve;
-    });
-    // Evict oldest entry if queue is at capacity
-    if (processingQueue.size >= PROCESSING_QUEUE_MAX_SIZE) {
-        const firstKey = processingQueue.keys().next().value;
-        if (firstKey) {
-            processingQueue.delete(firstKey);
-            if (debug) debug(`Evicted oldest processing entry (${firstKey}), queue was full`);
-        }
-    }
-    
-    processingQueue.set(screenName, processingPromise);
-    
-    const processingTimeout = setTimeout(() => {
-        if (processingQueue.has(screenName)) {
-            if (debug) debug(`Cleaning up stale processing entry for @${screenName}`);
-            processingQueue.delete(screenName);
-            resolveProcessing();
-        }
-    }, 30000);
-    
-    // Show shimmer in debug mode
-    let shimmer = null;
-    if (debugMode) {
-        shimmer = document.createElement('span');
-        shimmer.className = CSS_CLASSES.FLAG_SHIMMER;
-        const insertionPoint = isUserCell
-            ? findUserCellInsertionPoint(element, screenName)
-            : findInsertionPoint(element, screenName);
-        if (insertionPoint) {
-            insertionPoint.target.insertBefore(shimmer, insertionPoint.ref);
-        }
-    }
-
-    try {
-        const response = await sendMessage({
-            type: MESSAGE_TYPES.FETCH_USER_INFO,
-            payload: { screenName, csrfToken }
-        });
-
-        if (shimmer) shimmer.remove();
-
-        if (!response?.success || !response.data) {
-            if (response?.code === 'RATE_LIMITED') {
-                const resetDate = response.retryAfter ? new Date(response.retryAfter) : null;
-                let resetStr = 'unknown';
-                let relativeStr = '';
-                
-                if (resetDate) {
-                    resetStr = resetDate.toLocaleTimeString();
-                    const now = Date.now();
-                    const diffMs = resetDate.getTime() - now;
-                    
-                    if (diffMs > 0) {
-                        const diffMins = Math.ceil(diffMs / 60000);
-                        if (diffMins >= 60) {
-                            const hours = Math.floor(diffMins / 60);
-                            const mins = diffMins % 60;
-                            relativeStr = mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-                        } else {
-                            relativeStr = `${diffMins} min${diffMins > 1 ? 's' : ''}`;
-                        }
-                    }
-                }
-                
-                console.warn(`⚠️ X-Posed: Rate limited! Resets at ${resetStr}${relativeStr ? ` (in ${relativeStr})` : ''}`);
-                
-                const now = Date.now();
-                if (now - lastRateLimitToastTime > TIMING.RATE_LIMIT_TOAST_COOLDOWN_MS) {
-                    lastRateLimitToastTime = now;
-                    showRateLimitToast(relativeStr || 'a few minutes');
-                }
-            } else if (response?.error) {
-                if (debug) debug(`API error for @${screenName}: ${response.error}`);
-            }
-            userInfoCache.set(screenName, null);
-            processingQueue.delete(screenName);
-            return;
-        }
-
-        const info = response.data;
-        if (debug) debug(`Received data for @${screenName}:`, { location: info.location, device: info.device });
-        
-        userInfoCache.set(screenName, info);
-        
-        element.dataset.xCountry = info.location || '';
-        element.dataset.xVpn = info.locationAccurate === false ? 'true' : '';
-        element.dataset.xIsRegion = isRegion(info.location) ? 'true' : '';
-
-        // Handle blocked country or region
-        // Only block/highlight if this is NOT inside a quote tweet (we only care about main tweet author)
-        const isQuote = isInsideQuoteTweet(element);
-        if (info.location && !isQuote) {
-            const locationLower = info.location.toLowerCase();
-            const isBlockedCountry = blockedCountries.has(locationLower);
-            const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
-            
-            if (isBlockedCountry || isBlockedRegion) {
-                const tweet = element.closest(SELECTORS.TWEET);
-                if (tweet) {
-                    if (settings.highlightBlockedTweets) {
-                        tweet.classList.add('x-tweet-highlighted');
-                        tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
-                    } else {
-                        tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
-                        tweet.classList.remove('x-tweet-highlighted');
-                    }
-                }
-                // Don't return if highlight mode - still need to show badge
-                if (!settings.highlightBlockedTweets) {
-                    processingQueue.delete(screenName);
-                    return;
-                }
-            }
-        }
-
-        // Hide if VPN detected and showVpnUsers is disabled
-        if (info.locationAccurate === false && settings.showVpnUsers === false) {
-            const tweet = element.closest(SELECTORS.TWEET);
-            if (tweet) {
-                tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
-                tweet.classList.add('x-tweet-vpn-blocked');
-            }
-            processingQueue.delete(screenName);
-            return;
-        }
-
         if (info.location || info.device) {
-            try {
-                createBadge(element, screenName, info, isUserCell, settings, debug, csrfToken);
-            } catch (badgeError) {
-                if (debug) debug(`Badge creation error for @${screenName}: ${badgeError.message}`);
-            }
+          createBadge(element, screenName, info, isUserCell, settings, debug, csrfToken);
         }
-    } catch (error) {
-        userInfoCache.set(screenName, null);
-    } finally {
-        clearTimeout(processingTimeout);
-        processingQueue.delete(screenName);
-        resolveProcessing(); // Signal completion to waiting requests
+      }
     }
+    return;
+  }
+
+  // Create the processing promise and store it for waiting
+  let resolveProcessing;
+  const processingPromise = new Promise((resolve) => {
+    resolveProcessing = resolve;
+  });
+  // Evict oldest entry if queue is at capacity
+  if (processingQueue.size >= PROCESSING_QUEUE_MAX_SIZE) {
+    const firstKey = processingQueue.keys().next().value;
+    if (firstKey) {
+      processingQueue.delete(firstKey);
+      if (debug) debug(`Evicted oldest processing entry (${firstKey}), queue was full`);
+    }
+  }
+
+  processingQueue.set(screenName, processingPromise);
+
+  const processingTimeout = setTimeout(() => {
+    if (processingQueue.has(screenName)) {
+      if (debug) debug(`Cleaning up stale processing entry for @${screenName}`);
+      processingQueue.delete(screenName);
+      resolveProcessing();
+    }
+  }, 30000);
+
+  // Show shimmer in debug mode
+  let shimmer = null;
+  if (debugMode) {
+    shimmer = document.createElement("span");
+    shimmer.className = CSS_CLASSES.FLAG_SHIMMER;
+    const insertionPoint = isUserCell
+      ? findUserCellInsertionPoint(element, screenName)
+      : findInsertionPoint(element, screenName);
+    if (insertionPoint) {
+      insertionPoint.target.insertBefore(shimmer, insertionPoint.ref);
+    }
+  }
+
+  try {
+    const response = await sendMessage({
+      type: MESSAGE_TYPES.FETCH_USER_INFO,
+      payload: { screenName, csrfToken },
+    });
+
+    if (shimmer) shimmer.remove();
+
+    if (!response?.success || !response.data) {
+      if (response?.code === "RATE_LIMITED") {
+        const resetDate = response.retryAfter ? new Date(response.retryAfter) : null;
+        let resetStr = "unknown";
+        let relativeStr = "";
+
+        if (resetDate) {
+          resetStr = resetDate.toLocaleTimeString();
+          const now = Date.now();
+          const diffMs = resetDate.getTime() - now;
+
+          if (diffMs > 0) {
+            const diffMins = Math.ceil(diffMs / 60000);
+            if (diffMins >= 60) {
+              const hours = Math.floor(diffMins / 60);
+              const mins = diffMins % 60;
+              relativeStr = mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+            } else {
+              relativeStr = `${diffMins} min${diffMins > 1 ? "s" : ""}`;
+            }
+          }
+        }
+
+        console.warn(
+          `⚠️ X-Posed: Rate limited! Resets at ${resetStr}${relativeStr ? ` (in ${relativeStr})` : ""}`,
+        );
+
+        const now = Date.now();
+        if (now - lastRateLimitToastTime > TIMING.RATE_LIMIT_TOAST_COOLDOWN_MS) {
+          lastRateLimitToastTime = now;
+          showRateLimitToast(relativeStr || "a few minutes");
+        }
+      } else if (response?.error) {
+        if (debug) debug(`API error for @${screenName}: ${response.error}`);
+      }
+      userInfoCache.set(screenName, null);
+      processingQueue.delete(screenName);
+      return;
+    }
+
+    const info = response.data;
+    if (debug) {
+      debug(`Received data for @${screenName}:`, { location: info.location, device: info.device });
+    }
+
+    userInfoCache.set(screenName, info);
+
+    element.dataset.xCountry = info.location || "";
+    element.dataset.xVpn = info.locationAccurate === false ? "true" : "";
+    element.dataset.xIsRegion = isRegion(info.location) ? "true" : "";
+
+    // Handle blocked country or region
+    // Only block/highlight if this is NOT inside a quote tweet (we only care about main tweet author)
+    const isQuote = isInsideQuoteTweet(element);
+    if (info.location && !isQuote) {
+      const locationLower = info.location.toLowerCase();
+      const isBlockedCountry = blockedCountries.has(locationLower);
+      const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
+
+      if (isBlockedCountry || isBlockedRegion) {
+        const tweet = element.closest(SELECTORS.TWEET);
+        if (tweet) {
+          if (settings.highlightBlockedTweets) {
+            tweet.setAttribute("data-x-tweet-highlighted", "true");
+            tweet.classList.add("x-tweet-highlighted");
+            tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
+          } else {
+            tweet.setAttribute("data-x-tweet-highlighted", "true");
+            tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
+            tweet.classList.remove("x-tweet-highlighted");
+          }
+        }
+        // Don't return if highlight mode - still need to show badge
+        if (!settings.highlightBlockedTweets) {
+          processingQueue.delete(screenName);
+          return;
+        }
+      }
+    }
+
+    // Hide if VPN detected and showVpnUsers is disabled
+    if (info.locationAccurate === false && settings.showVpnUsers === false) {
+      const tweet = element.closest(SELECTORS.TWEET);
+      if (tweet) {
+        tweet.classList.add(CSS_CLASSES.TWEET_BLOCKED);
+        tweet.classList.add("x-tweet-vpn-blocked");
+      }
+      processingQueue.delete(screenName);
+      return;
+    }
+
+    if (info.location || info.device) {
+      try {
+        createBadge(element, screenName, info, isUserCell, settings, debug, csrfToken);
+      } catch (badgeError) {
+        if (debug) debug(`Badge creation error for @${screenName}: ${badgeError.message}`);
+      }
+    }
+  } catch (error) {
+    userInfoCache.set(screenName, null);
+  } finally {
+    clearTimeout(processingTimeout);
+    processingQueue.delete(screenName);
+    resolveProcessing(); // Signal completion to waiting requests
+  }
 }
 
 // ============================================
@@ -790,43 +810,45 @@ export async function processElement(element, {
  * @param {Object} settings - Settings object with highlightBlockedTweets flag
  */
 export function updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings = {}) {
-    const highlightMode = settings.highlightBlockedTweets === true;
-    
-    document.querySelectorAll('[data-x-screen-name]').forEach(element => {
-        const location = element.dataset.xCountry;
-        
-        if (!location) return;
-        
-        const tweet = element.closest(SELECTORS.TWEET);
-        if (!tweet) return;
-        
-        const locationLower = location.toLowerCase();
-        const isBlockedCountry = blockedCountries.has(locationLower);
-        const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
-        const isBlocked = isBlockedCountry || isBlockedRegion;
-        
-        if (highlightMode) {
-            // Highlight mode: show with red border
-            tweet.classList.toggle('x-tweet-highlighted', isBlocked);
-            tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
-            
-            // Badge visible in highlight mode
-            const badge = element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`);
-            if (badge) {
-                badge.style.display = '';
-            }
-        } else {
-            // Hide mode: hide completely
-            tweet.classList.toggle(CSS_CLASSES.TWEET_BLOCKED, isBlocked);
-            tweet.classList.remove('x-tweet-highlighted');
-            
-            // Badge hidden when tweet is blocked
-            const badge = element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`);
-            if (badge) {
-                badge.style.display = isBlocked ? 'none' : '';
-            }
-        }
-    });
+  const highlightMode = settings.highlightBlockedTweets === true;
+
+  document.querySelectorAll("[data-x-screen-name]").forEach((element) => {
+    const location = element.dataset.xCountry;
+
+    if (!location) return;
+
+    const tweet = element.closest(SELECTORS.TWEET);
+    if (!tweet) return;
+
+    const locationLower = location.toLowerCase();
+    const isBlockedCountry = blockedCountries.has(locationLower);
+    const isBlockedRegion = blockedRegions && blockedRegions.has(locationLower);
+    const isBlocked = isBlockedCountry || isBlockedRegion;
+
+    if (highlightMode) {
+      // Highlight mode: show with red border
+      tweet.setAttribute("data-x-tweet-highlighted", isBlocked ? "true" : "false");
+      tweet.classList.toggle("x-tweet-highlighted", isBlocked);
+      tweet.classList.remove(CSS_CLASSES.TWEET_BLOCKED);
+
+      // Badge visible in highlight mode
+      const badge = element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`);
+      if (badge) {
+        badge.style.display = "";
+      }
+    } else {
+      // Hide mode: hide completely
+      tweet.removeAttribute("data-x-tweet-highlighted");
+      tweet.classList.toggle(CSS_CLASSES.TWEET_BLOCKED, isBlocked);
+      tweet.classList.remove("x-tweet-highlighted");
+
+      // Badge hidden when tweet is blocked
+      const badge = element.querySelector(`.${CSS_CLASSES.INFO_BADGE}`);
+      if (badge) {
+        badge.style.display = isBlocked ? "none" : "";
+      }
+    }
+  });
 }
 
 // ============================================
@@ -837,17 +859,17 @@ export function updateBlockedTweets(blockedCountries, blockedRegions, blockedTag
  * Cleanup all observer resources
  */
 export function cleanupObservers() {
-    for (const cleanupFn of observerCleanupFunctions) {
-        try {
-            cleanupFn();
-        } catch (error) {
-            console.error('X-Posed: Observer cleanup error:', error);
-        }
+  for (const cleanupFn of observerCleanupFunctions) {
+    try {
+      cleanupFn();
+    } catch (error) {
+      console.error("X-Posed: Observer cleanup error:", error);
     }
-    observerCleanupFunctions.length = 0;
-    
-    // Clear all processing queues properly
-    processingQueue.clear();
-    userInfoCache.clear();
-    pendingVisibility.clear();
+  }
+  observerCleanupFunctions.length = 0;
+
+  // Clear all processing queues properly
+  processingQueue.clear();
+  userInfoCache.clear();
+  pendingVisibility.clear();
 }

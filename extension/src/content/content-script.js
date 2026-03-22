@@ -4,28 +4,28 @@
  * Orchestrates UI and Observer modules
  */
 
-import browserAPI from '../shared/browser-api.js';
-import { MESSAGE_TYPES, CSS_CLASSES, VERSION } from '../shared/constants.js';
+import browserAPI from "../shared/browser-api.js";
+import { MESSAGE_TYPES, CSS_CLASSES, VERSION } from "../shared/constants.js";
 
 // Import modules
 import {
-    injectStyles,
-    detectAndApplyTheme,
-    startThemeObserver,
-    injectSidebarLink,
-    removeSidebarLink,
-    cleanupUI
-} from './ui.js';
+  injectStyles,
+  detectAndApplyTheme,
+  startThemeObserver,
+  injectSidebarLink,
+  removeSidebarLink,
+  cleanupUI,
+} from "./ui.js";
 
 import {
-    startObserver,
-    scanPage,
-    processElementsBatch,
-    processElement,
-    createProcessElementSafe,
-    updateBlockedTweets,
-    cleanupObservers
-} from './observer.js';
+  startObserver,
+  scanPage,
+  processElementsBatch,
+  processElement,
+  createProcessElementSafe,
+  updateBlockedTweets,
+  cleanupObservers,
+} from "./observer.js";
 
 // ============================================
 // STATE
@@ -56,9 +56,9 @@ let memoizedScanPageFn = null;
  * Debug logger - only logs when debugMode is enabled
  */
 function debug(...args) {
-    if (debugMode) {
-        console.log('🔍 X-Posed:', ...args);
-    }
+  if (debugMode) {
+    console.log("🔍 X-Posed:", ...args);
+  }
 }
 
 // ============================================
@@ -69,83 +69,83 @@ function debug(...args) {
  * Send message to background script
  */
 async function sendMessage(message) {
-    try {
-        return await browserAPI.runtime.sendMessage(message);
-    } catch (error) {
-        console.error('Message send error:', error);
-        return { success: false, error: error.message };
-    }
+  try {
+    return await browserAPI.runtime.sendMessage(message);
+  } catch (error) {
+    console.error("Message send error:", error);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
  * Get CSRF token from cookies
  */
 function getCsrfToken() {
-    const cookies = document.cookie.split('; ');
-    for (const cookie of cookies) {
-        const [key, value] = cookie.split('=');
-        if (key === 'ct0') {
-            return value;
-        }
+  const cookies = document.cookie.split("; ");
+  for (const cookie of cookies) {
+    const [key, value] = cookie.split("=");
+    if (key === "ct0") {
+      return value;
     }
-    return null;
+  }
+  return null;
 }
 
 /**
  * Inject page script into MAIN world for header interception
  */
 function injectPageScript() {
-    const scriptUrl = browserAPI.runtime.getURL('page-script.js');
-    
-    const script = document.createElement('script');
-    script.src = scriptUrl;
-    script.onload = function() {
-        this.remove();
-    };
-    
-    (document.head || document.documentElement).appendChild(script);
+  const scriptUrl = browserAPI.runtime.getURL("page-script.js");
+
+  const script = document.createElement("script");
+  script.src = scriptUrl;
+  script.onload = function () {
+    this.remove();
+  };
+
+  (document.head || document.documentElement).appendChild(script);
 }
 
 /**
  * Listen for events from page script
  */
 function setupPageScriptListener() {
-    window.addEventListener('x-posed-headers-captured', async event => {
-        const { headers } = event.detail;
-        debug('Headers captured from page script');
-        
-        await sendMessage({
-            type: MESSAGE_TYPES.CAPTURE_HEADERS,
-            payload: { headers }
-        });
+  window.addEventListener("x-posed-headers-captured", async (event) => {
+    const { headers } = event.detail;
+    debug("Headers captured from page script");
+
+    await sendMessage({
+      type: MESSAGE_TYPES.CAPTURE_HEADERS,
+      payload: { headers },
     });
+  });
 }
 
 /**
  * Listen for messages from background script
  */
 function setupBackgroundListener() {
-    const messageHandler = (message, sender, sendResponse) => {
-        const { type, payload } = message;
+  const messageHandler = (message, sender, sendResponse) => {
+    const { type, payload } = message;
 
-        // Use proper async handling with error boundary
-        handleBackgroundMessage(type, payload)
-            .then(result => {
-                sendResponse(result);
-            })
-            .catch(error => {
-                console.error('X-Posed: Message handler error:', error);
-                sendResponse({ success: false, error: error.message });
-            });
+    // Use proper async handling with error boundary
+    handleBackgroundMessage(type, payload)
+      .then((result) => {
+        sendResponse(result);
+      })
+      .catch((error) => {
+        console.error("X-Posed: Message handler error:", error);
+        sendResponse({ success: false, error: error.message });
+      });
 
-        return true; // Indicates async response
-    };
+    return true; // Indicates async response
+  };
 
-    browserAPI.runtime.onMessage.addListener(messageHandler);
-    
-    cleanupFunctions.push(() => {
-        browserAPI.runtime.onMessage.removeListener(messageHandler);
-    });
+  browserAPI.runtime.onMessage.addListener(messageHandler);
+
+  cleanupFunctions.push(() => {
+    browserAPI.runtime.onMessage.removeListener(messageHandler);
+  });
 }
 
 /**
@@ -155,46 +155,53 @@ function setupBackgroundListener() {
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 async function handleBackgroundMessage(type, payload) {
-    switch (type) {
-        case MESSAGE_TYPES.SETTINGS_UPDATED: {
-            const prevSettings = { ...settings };
-            settings = payload;
-            isEnabled = settings.enabled !== false;
-            debugMode = settings.debugMode === true;
-            debug('Settings updated:', settings);
-            
-            if (!isEnabled) {
-                document.querySelectorAll(`.${CSS_CLASSES.INFO_BADGE}`).forEach(el => el.remove());
-            }
-            
-            if (prevSettings.showSidebarBlockerLink !== settings.showSidebarBlockerLink) {
-                if (settings.showSidebarBlockerLink === false) {
-                    removeSidebarLink(debug);
-                } else {
-                    injectSidebarLink(settings, debug, blockedCountries, blockedRegions, sendMessage, MESSAGE_TYPES);
-                }
-            }
-            return { success: true };
+  switch (type) {
+    case MESSAGE_TYPES.SETTINGS_UPDATED: {
+      const prevSettings = { ...settings };
+      settings = payload;
+      isEnabled = settings.enabled !== false;
+      debugMode = settings.debugMode === true;
+      debug("Settings updated:", settings);
+
+      if (!isEnabled) {
+        document.querySelectorAll(`.${CSS_CLASSES.INFO_BADGE}`).forEach((el) => el.remove());
+      }
+
+      if (prevSettings.showSidebarBlockerLink !== settings.showSidebarBlockerLink) {
+        if (settings.showSidebarBlockerLink === false) {
+          removeSidebarLink(debug);
+        } else {
+          injectSidebarLink(
+            settings,
+            debug,
+            blockedCountries,
+            blockedRegions,
+            sendMessage,
+            MESSAGE_TYPES,
+          );
         }
-
-        case MESSAGE_TYPES.BLOCKED_COUNTRIES_UPDATED:
-            blockedCountries = new Set(payload);
-            updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings);
-            return { success: true };
-
-        case MESSAGE_TYPES.BLOCKED_REGIONS_UPDATED:
-            blockedRegions = new Set(payload);
-            updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings);
-            return { success: true };
-
-        case MESSAGE_TYPES.BLOCKED_TAGS_UPDATED:
-            blockedTags = new Set(payload);
-            updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings);
-            return { success: true };
-
-        default:
-            return { success: false, error: 'Unknown message type' };
+      }
+      return { success: true };
     }
+
+    case MESSAGE_TYPES.BLOCKED_COUNTRIES_UPDATED:
+      blockedCountries = new Set(payload);
+      updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings);
+      return { success: true };
+
+    case MESSAGE_TYPES.BLOCKED_REGIONS_UPDATED:
+      blockedRegions = new Set(payload);
+      updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings);
+      return { success: true };
+
+    case MESSAGE_TYPES.BLOCKED_TAGS_UPDATED:
+      blockedTags = new Set(payload);
+      updateBlockedTweets(blockedCountries, blockedRegions, blockedTags, settings);
+      return { success: true };
+
+    default:
+      return { success: false, error: "Unknown message type" };
+  }
 }
 
 // ============================================
@@ -205,71 +212,85 @@ async function handleBackgroundMessage(type, payload) {
  * Initialize the content script
  */
 async function initialize() {
-    console.log(`🚀 X-Posed v${VERSION} initializing...`);
-    
-    try {
-        // Set up listeners BEFORE injecting page script
-        setupPageScriptListener();
-        setupBackgroundListener();
+  console.log(`🚀 X-Posed v${VERSION} initializing...`);
 
-        // Extract CSRF token
-        csrfToken = getCsrfToken();
-        
-        // Inject page script for header interception
-        injectPageScript();
+  try {
+    // Set up listeners BEFORE injecting page script
+    setupPageScriptListener();
+    setupBackgroundListener();
 
-        // Load initial settings, blocked countries, blocked regions, and blocked tags
-        const [settingsResponse, blockedResponse, blockedRegionsResponse, blockedTagsResponse] = await Promise.all([
-            sendMessage({ type: MESSAGE_TYPES.GET_SETTINGS }),
-            sendMessage({ type: MESSAGE_TYPES.GET_BLOCKED_COUNTRIES }),
-            sendMessage({ type: MESSAGE_TYPES.GET_BLOCKED_REGIONS }),
-            sendMessage({ type: MESSAGE_TYPES.GET_BLOCKED_TAGS })
-        ]);
+    // Extract CSRF token
+    csrfToken = getCsrfToken();
 
-        if (settingsResponse?.success) {
-            settings = settingsResponse.data;
-            isEnabled = settings.enabled !== false;
-            debugMode = settings.debugMode === true;
-        }
-        
-        console.log(`✅ X-Posed initialized (enabled: ${isEnabled}, debug: ${debugMode})`);
+    // Inject page script for header interception
+    injectPageScript();
 
-        if (blockedResponse?.success) {
-            blockedCountries = new Set(blockedResponse.data);
-        }
+    // Load initial settings, blocked countries, blocked regions, and blocked tags
+    const [settingsResponse, blockedResponse, blockedRegionsResponse, blockedTagsResponse] =
+      await Promise.all([
+        sendMessage({ type: MESSAGE_TYPES.GET_SETTINGS }),
+        sendMessage({ type: MESSAGE_TYPES.GET_BLOCKED_COUNTRIES }),
+        sendMessage({ type: MESSAGE_TYPES.GET_BLOCKED_REGIONS }),
+        sendMessage({ type: MESSAGE_TYPES.GET_BLOCKED_TAGS }),
+      ]);
 
-        if (blockedRegionsResponse?.success) {
-            blockedRegions = new Set(blockedRegionsResponse.data);
-        }
-
-        if (blockedTagsResponse?.success) {
-            blockedTags = new Set(blockedTagsResponse.data);
-        }
-
-        // Inject styles
-        injectStyles();
-
-        // Detect and apply theme
-        detectAndApplyTheme(debug);
-        startThemeObserver();
-
-        // Create memoized functions once (not on every call)
-        createMemoizedFunctions();
-        
-        // Start DOM observation when ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                startObserver(memoizedIsEnabledFn, memoizedProcessElementSafe, memoizedScanPageFn, debug);
-                injectSidebarLink(settings, debug, blockedCountries, blockedRegions, sendMessage, MESSAGE_TYPES);
-            });
-        } else {
-            startObserver(memoizedIsEnabledFn, memoizedProcessElementSafe, memoizedScanPageFn, debug);
-            injectSidebarLink(settings, debug, blockedCountries, blockedRegions, sendMessage, MESSAGE_TYPES);
-        }
-
-    } catch (error) {
-        console.error('X-Posed initialization failed:', error);
+    if (settingsResponse?.success) {
+      settings = settingsResponse.data;
+      isEnabled = settings.enabled !== false;
+      debugMode = settings.debugMode === true;
     }
+
+    console.log(`✅ X-Posed initialized (enabled: ${isEnabled}, debug: ${debugMode})`);
+
+    if (blockedResponse?.success) {
+      blockedCountries = new Set(blockedResponse.data);
+    }
+
+    if (blockedRegionsResponse?.success) {
+      blockedRegions = new Set(blockedRegionsResponse.data);
+    }
+
+    if (blockedTagsResponse?.success) {
+      blockedTags = new Set(blockedTagsResponse.data);
+    }
+
+    // Inject styles
+    injectStyles();
+
+    // Detect and apply theme
+    detectAndApplyTheme(debug);
+    startThemeObserver();
+
+    // Create memoized functions once (not on every call)
+    createMemoizedFunctions();
+
+    // Start DOM observation when ready
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => {
+        startObserver(memoizedIsEnabledFn, memoizedProcessElementSafe, memoizedScanPageFn, debug);
+        injectSidebarLink(
+          settings,
+          debug,
+          blockedCountries,
+          blockedRegions,
+          sendMessage,
+          MESSAGE_TYPES,
+        );
+      });
+    } else {
+      startObserver(memoizedIsEnabledFn, memoizedProcessElementSafe, memoizedScanPageFn, debug);
+      injectSidebarLink(
+        settings,
+        debug,
+        blockedCountries,
+        blockedRegions,
+        sendMessage,
+        MESSAGE_TYPES,
+      );
+    }
+  } catch (error) {
+    console.error("X-Posed initialization failed:", error);
+  }
 }
 
 // ============================================
@@ -281,30 +302,44 @@ async function initialize() {
  * These functions close over the module state and are reused
  */
 function createMemoizedFunctions() {
-    // Only create once
-    if (memoizedProcessElementWithContext) return;
-    
-    // Process element function that closes over current state
-    // Note: This references the module-level variables, so it always uses current values
-    memoizedProcessElementWithContext = element => processElement(element, {
-        get blockedCountries() { return blockedCountries; },
-        get blockedRegions() { return blockedRegions; },
-        get blockedTags() { return blockedTags; },
-        get settings() { return settings; },
-        get csrfToken() { return csrfToken; },
-        sendMessage,
-        debug,
-        get debugMode() { return debugMode; }
+  // Only create once
+  if (memoizedProcessElementWithContext) return;
+
+  // Process element function that closes over current state
+  // Note: This references the module-level variables, so it always uses current values
+  memoizedProcessElementWithContext = (element) =>
+    processElement(element, {
+      get blockedCountries() {
+        return blockedCountries;
+      },
+      get blockedRegions() {
+        return blockedRegions;
+      },
+      get blockedTags() {
+        return blockedTags;
+      },
+      get settings() {
+        return settings;
+      },
+      get csrfToken() {
+        return csrfToken;
+      },
+      sendMessage,
+      debug,
+      get debugMode() {
+        return debugMode;
+      },
     });
-    
-    memoizedProcessElementSafe = createProcessElementSafe(memoizedProcessElementWithContext);
-    
-    // These use getters to always return current state values
-    memoizedIsEnabledFn = () => isEnabled;
-    memoizedScanPageFn = () => scanPage(
-        memoizedIsEnabledFn,
-        elements => processElementsBatch(elements, memoizedProcessElementSafe, debug),
-        debug
+
+  memoizedProcessElementSafe = createProcessElementSafe(memoizedProcessElementWithContext);
+
+  // These use getters to always return current state values
+  memoizedIsEnabledFn = () => isEnabled;
+  memoizedScanPageFn = () =>
+    scanPage(
+      memoizedIsEnabledFn,
+      (elements) => processElementsBatch(elements, memoizedProcessElementSafe, debug),
+      debug,
     );
 }
 
@@ -316,27 +351,27 @@ function createMemoizedFunctions() {
  * Cleanup all resources
  */
 function cleanup() {
-    debug('Cleaning up X-Posed resources...');
-    
-    // Run local cleanup functions
-    for (const cleanupFn of cleanupFunctions) {
-        try {
-            cleanupFn();
-        } catch (error) {
-            console.error('X-Posed: Cleanup error:', error);
-        }
+  debug("Cleaning up X-Posed resources...");
+
+  // Run local cleanup functions
+  for (const cleanupFn of cleanupFunctions) {
+    try {
+      cleanupFn();
+    } catch (error) {
+      console.error("X-Posed: Cleanup error:", error);
     }
-    cleanupFunctions = [];
-    
-    // Cleanup modules
-    cleanupUI();
-    cleanupObservers();
-    
-    debug('Cleanup complete');
+  }
+  cleanupFunctions = [];
+
+  // Cleanup modules
+  cleanupUI();
+  cleanupObservers();
+
+  debug("Cleanup complete");
 }
 
 // Handle page unload
-window.addEventListener('beforeunload', cleanup);
+window.addEventListener("beforeunload", cleanup);
 
 // ============================================
 // BOOTSTRAP
@@ -347,22 +382,22 @@ initialize();
 
 // Export for debugging (uses memoized functions when available)
 window.__X_POSED_CONTENT__ = {
-    version: VERSION,
-    scanPage: () => {
-        // Use memoized functions if available, create on-demand otherwise
-        if (memoizedScanPageFn) {
-            memoizedScanPageFn();
-        } else {
-            // Fallback for debugging before initialization
-            createMemoizedFunctions();
-            memoizedScanPageFn();
-        }
-    },
-    getState: () => ({
-        isEnabled,
-        blockedCountries: Array.from(blockedCountries),
-        blockedRegions: Array.from(blockedRegions),
-        blockedTags: Array.from(blockedTags),
-        settings
-    })
+  version: VERSION,
+  scanPage: () => {
+    // Use memoized functions if available, create on-demand otherwise
+    if (memoizedScanPageFn) {
+      memoizedScanPageFn();
+    } else {
+      // Fallback for debugging before initialization
+      createMemoizedFunctions();
+      memoizedScanPageFn();
+    }
+  },
+  getState: () => ({
+    isEnabled,
+    blockedCountries: Array.from(blockedCountries),
+    blockedRegions: Array.from(blockedRegions),
+    blockedTags: Array.from(blockedTags),
+    settings,
+  }),
 };
